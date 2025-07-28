@@ -252,13 +252,111 @@ jobs:
       run: make
     - name: make install
       run: make install
-    - name: prepare artifact
+    - name: prepare artifact with dependencies
       run: |
           mkdir -p dest
           DESTDIR=`pwd`/dest make install
+          
+          # Create a directory for the complete package
+          mkdir -p package/bin
+          mkdir -p package/lib
+          mkdir -p package/include
+          
+          # Copy the installed files
+          cp -r dest/${{ env.dest }}/* package/
+          
+          # Function to copy a DLL and its dependencies
+          copy_deps() {
+              local file=$1
+              local dest_dir=$2
+              
+              # Copy the file itself
+              if [ -f "$file" ]; then
+                  cp "$file" "$dest_dir/"
+              fi
+              
+              # Get all DLL dependencies
+              ldd "$file" 2>/dev/null | grep "=> /" | awk '{print $3}' | while read dep; do
+                  if [ -f "$dep" ] && [ ! -f "$dest_dir/$(basename $dep)" ]; then
+                      echo "Copying dependency: $(basename $dep)"
+                      cp "$dep" "$dest_dir/"
+                      # Recursively copy this DLL's dependencies
+                      copy_deps "$dep" "$dest_dir"
+                  fi
+              done
+          }
+          
+          # Copy all executables and their dependencies
+          for exe in package/bin/*.exe; do
+              if [ -f "$exe" ]; then
+                  echo "Processing executable: $(basename $exe)"
+                  copy_deps "$exe" "package/bin"
+              fi
+          done
+          
+          # Copy all DLLs and their dependencies
+          for dll in package/bin/*.dll; do
+              if [ -f "$dll" ]; then
+                  echo "Processing DLL: $(basename $dll)"
+                  copy_deps "$dll" "package/bin"
+              fi
+          done
+          
+          # Copy critical MSYS2/MinGW runtime DLLs
+          critical_dlls=(
+              "/${{ env.dest }}/bin/libgcc_s_*.dll"
+              "/${{ env.dest }}/bin/libwinpthread-1.dll"
+              "/${{ env.dest }}/bin/libstdc++-6.dll"
+              "/usr/bin/msys-2.0.dll"
+          )
+          
+          for pattern in "${critical_dlls[@]}"; do
+              for dll in $pattern; do
+                  if [ -f "$dll" ]; then
+                      echo "Copying critical DLL: $(basename $dll)"
+                      cp "$dll" package/bin/
+                  fi
+              done
+          done
+          
+          # Create README
+          cat > package/README.txt << 'EOF'
+          libimobiledevice for Windows
+          ============================
+          
+          This package contains libimobiledevice tools and all required dependencies.
+          
+          Tools included:
+          - idevice_id - List attached devices
+          - ideviceinfo - Show device information
+          - idevicebackup2 - Backup/restore devices
+          - idevicescreenshot - Take screenshots
+          - idevicesyslog - View device logs
+          - And many more...
+          
+          Usage:
+          1. Add the 'bin' directory to your PATH, or
+          2. Run tools directly from the bin directory
+          
+          Requirements:
+          - Windows 10 or later
+          - iTunes drivers (for USB device detection)
+          
+          For more information: https://libimobiledevice.org/
+          EOF
+          
+          # Create the final archive
+          tar -cf libimobiledevice-${{ matrix.arch }}-${{ env.dest }}-standalone.tar package/
+          
+          # Also create the original archive for compatibility
           tar -C dest -cf libimobiledevice.tar ${{ env.dest }}
-    - name: publish artifact
+    - name: publish artifact (original)
       uses: actions/upload-artifact@v4
       with:
         name: libimobiledevice-latest_${{ matrix.arch }}-${{ env.dest }}
         path: libimobiledevice.tar
+    - name: publish artifact (standalone with dependencies)
+      uses: actions/upload-artifact@v4
+      with:
+        name: libimobiledevice-${{ matrix.arch }}-${{ env.dest }}-standalone
+        path: libimobiledevice-${{ matrix.arch }}-${{ env.dest }}-standalone.tar
