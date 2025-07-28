@@ -270,8 +270,13 @@ jobs:
               local file=$1
               local dest_dir=$2
               
+              # Skip if source and destination are the same
+              if [ "$(dirname "$file")" = "$(realpath "$dest_dir")" ]; then
+                  return
+              fi
+              
               # Copy the file itself
-              if [ -f "$file" ]; then
+              if [ -f "$file" ] && [ ! -f "$dest_dir/$(basename $file)" ]; then
                   cp "$file" "$dest_dir/"
               fi
               
