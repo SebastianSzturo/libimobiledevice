@@ -265,45 +265,28 @@ jobs:
           # Copy the installed files
           cp -r dest/${{ env.dest }}/* package/
           
-          # Function to copy a DLL and its dependencies
-          copy_deps() {
-              local file=$1
-              local dest_dir=$2
-              
-              # Skip if source and destination are the same
-              if [ "$(dirname "$file")" = "$(realpath "$dest_dir")" ]; then
-                  return
-              fi
-              
-              # Copy the file itself
-              if [ -f "$file" ] && [ ! -f "$dest_dir/$(basename $file)" ]; then
-                  cp "$file" "$dest_dir/"
-              fi
-              
-              # Get all DLL dependencies
-              ldd "$file" 2>/dev/null | grep "=> /" | awk '{print $3}' | while read dep; do
-                  if [ -f "$dep" ] && [ ! -f "$dest_dir/$(basename $dep)" ]; then
-                      echo "Copying dependency: $(basename $dep)"
-                      cp "$dep" "$dest_dir/"
-                      # Recursively copy this DLL's dependencies
-                      copy_deps "$dep" "$dest_dir"
+          # Collect all dependencies using ldd (non-recursive to avoid timeout)
+          echo "Collecting dependencies..."
+          
+          # Get unique list of all DLL dependencies
+          all_deps=$(
+              for exe in package/bin/*.exe; do
+                  if [ -f "$exe" ]; then
+                      ldd "$exe" 2>/dev/null | grep "=> /" | awk '{print $3}'
                   fi
-              done
-          }
+              done | sort -u
+          )
           
-          # Copy all executables and their dependencies
-          for exe in package/bin/*.exe; do
-              if [ -f "$exe" ]; then
-                  echo "Processing executable: $(basename $exe)"
-                  copy_deps "$exe" "package/bin"
+          # Copy dependencies (excluding Windows system DLLs)
+          for dep in $all_deps; do
+              # Skip Windows system DLLs
+              if [[ "$dep" =~ ^/c/[Ww]indows/ ]]; then
+                  continue
               fi
-          done
-          
-          # Copy all DLLs and their dependencies
-          for dll in package/bin/*.dll; do
-              if [ -f "$dll" ]; then
-                  echo "Processing DLL: $(basename $dll)"
-                  copy_deps "$dll" "package/bin"
+              
+              if [ -f "$dep" ] && [ ! -f "package/bin/$(basename $dep)" ]; then
+                  echo "Copying dependency: $(basename $dep)"
+                  cp "$dep" package/bin/
               fi
           done
           
