@@ -1057,17 +1057,18 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 			break;
 		}
 
-		if (bname != NULL) {
-			free(bname);
-			bname = NULL;
-		}
+			if (bname != NULL) {
+				free(bname);
+				bname = NULL;
+			}
 
-		bname = string_build_path(backup_dir, fname, NULL);
+			bname = string_build_path(backup_dir, fname, NULL);
+			PRINT_VERBOSE(1, "INFO: receiving %s, saving to %s\n", dname ? dname : "(unknown)", bname ? bname : "(unknown)");
 
-		if (fname != NULL) {
-			free(fname);
-			fname = NULL;
-		}
+			if (fname != NULL) {
+				free(fname);
+				fname = NULL;
+			}
 
 		r = 0;
 		nlen = 0;
@@ -1113,9 +1114,6 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 			}
 			if (bdone == blocksize) {
 				backup_real_size += blocksize;
-			}
-			if (backup_total_size > 0) {
-				print_progress(backup_real_size, backup_total_size);
 			}
 			if (quit_flag)
 				break;
@@ -2685,4 +2683,3 @@ files_out:
 
 	return result_code;
 }
-
