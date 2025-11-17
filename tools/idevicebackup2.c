@@ -1063,7 +1063,6 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 			}
 
 			bname = string_build_path(backup_dir, fname, NULL);
-			PRINT_VERBOSE(1, "INFO: receiving %s, saving to %s\n", dname ? dname : "(unknown)", bname ? bname : "(unknown)");
 
 			if (fname != NULL) {
 				free(fname);
@@ -1126,15 +1125,16 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 			} else {
 				break;
 			}
-		}
-		if (f) {
-			fclose(f);
-			file_count++;
-		} else {
-			errcode = errno_to_device_error(errno);
-			errdesc = strerror(errno);
-			printf("Error opening '%s' for writing: %s\n", bname, errdesc);
-			break;
+			}
+			if (f) {
+				fclose(f);
+				file_count++;
+				PRINT_VERBOSE(1, "INFO: received %s, saved to %s\n", dname ? dname : "(unknown)", bname ? bname : "(unknown)");
+			} else {
+				errcode = errno_to_device_error(errno);
+				errdesc = strerror(errno);
+				printf("Error opening '%s' for writing: %s\n", bname, errdesc);
+				break;
 		}
 		if (nlen == 0) {
 			break;
