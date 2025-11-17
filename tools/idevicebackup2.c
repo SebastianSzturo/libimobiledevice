@@ -1098,11 +1098,11 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 			blocksize = nlen-1;
 			bdone = 0;
 			rlen = 0;
-			while (bdone < blocksize) {
-				if ((blocksize - bdone) < sizeof(buf)) {
-					rlen = blocksize - bdone;
-				} else {
-					rlen = sizeof(buf);
+				while (bdone < blocksize) {
+					if ((blocksize - bdone) < sizeof(buf)) {
+						rlen = blocksize - bdone;
+					} else {
+						rlen = sizeof(buf);
 				}
 				mobilebackup2_receive_raw(mobilebackup2, buf, rlen, &r);
 				if ((int)r <= 0) {
@@ -1110,15 +1110,16 @@ static int mb2_handle_receive_files(mobilebackup2_client_t mobilebackup2, plist_
 				}
 				fwrite(buf, 1, r, f);
 				bdone += r;
-			}
-			if (bdone == blocksize) {
-				backup_real_size += blocksize;
-			}
-			if (quit_flag)
-				break;
-			nlen = 0;
-			mobilebackup2_receive_raw(mobilebackup2, (char*)&nlen, 4, &r);
-			nlen = be32toh(nlen);
+				}
+				if (bdone == blocksize) {
+					backup_real_size += blocksize;
+				}
+				/* Individual file progress removed - only overall progress is shown */
+				if (quit_flag)
+					break;
+				nlen = 0;
+				mobilebackup2_receive_raw(mobilebackup2, (char*)&nlen, 4, &r);
+				nlen = be32toh(nlen);
 			if (nlen > 0) {
 				last_code = code;
 				mobilebackup2_receive_raw(mobilebackup2, &code, 1, &r);
